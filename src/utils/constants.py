@@ -1,7 +1,9 @@
-import os
+from pathlib import Path
 
 #đường dẫn của dữ liệu
-DATA_PATH = "./data"
+CURRENT_DIR = Path(__file__).resolve().parent # nằm trên ổ cứng nào nó sẽ trả về utils
+SRC_DIR = CURRENT_DIR.parent # chạy ngược về file core
+DATA_PATH = SRC_DIR/"storage"/"data" # rồi mình ghi đường dẫn vào data
 
 # ở đây các máy đều chạy trên mạng nội bộ nên nó đều có máy chủ là localhost nhé
 # 1 setup cấu hình cho Milvus
