@@ -18,11 +18,11 @@ MINIO_ENDPOINT = "localhost:9000"
 MINIO_ACCESS_KEY = "minioadmin"
 MINIO_SECRET_KEY = "minioadmin"
 BUCKET_NAME = "image"
-
+QUERY_BUCKET = "user_queries"
 # 3 setup cấu hình cho postgreSQL
 
 PG_DB = "image_retrieval"
 PG_USER = "user"
 PG_PASSWORD = "password"
 PG_HOST = "localhost"
-PG_PORT = "5432"
+PG_PORT = "5433"
