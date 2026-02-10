@@ -86,11 +86,11 @@ class PostgreSQL:
                                 userID VARCHAR(50),
                                 query_image_path TEXT,
                                 search_results JSONB,
-                                created_at TIMESTAMP CURRENT_TIMESTAP
+                                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
                                 CONSTRAINT fk_user_history
                                     FOREIGN KEY(userID)
-                                    REFERENCES users(users_id)
+                                    REFERENCES users(userID)
                                     ON DELETE CASCADE
                 );
                 """
