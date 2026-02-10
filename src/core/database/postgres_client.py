@@ -129,7 +129,8 @@ class PostgreSQL:
                 print(f"Add product {csv_data.get('id')} successfully")
                 return
             except Exception as e:
-                print("Error: {e}")
+                self.db.rollback()
+                print(f"Error: {e}")
                 return
             
     def search_data(self, product_ids):

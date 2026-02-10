@@ -33,7 +33,7 @@ Prerequisites:
     - có file storage/data/images và styles.csv
 
 bấm run python file hoặc dùng terminal: $ python -m scripts.etl_pipeline
-là nó sẽ tự up data lên hết (có)
+là nó sẽ tự up data lên hết 
 """
 
 def main():
@@ -53,8 +53,7 @@ def main():
     try:
         csv_path = os.path.join(DATA_PATH, "styles.csv")
         df = pd.read_csv(csv_path, on_bad_lines= 'skip')
-
-        df = df.head(10)
+        df = df.head(20)
         print("read csv successfully")
     except Exception as e:
         print(f"Error : {e}")
