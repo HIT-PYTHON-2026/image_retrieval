@@ -22,7 +22,9 @@ class MilvusClient:
             # các lệnh sau nó tự biết sẽ lưu hay xử lý ở đây
             connections.connect(alias= "default",
                                 port= MILVUS_PORT,
+                                
                                 host = MILVUS_HOST)
+            self.create_collection()
             print("connect to milvus successfully")
         except Exception as e:
             print(f"error: {e}")
@@ -62,23 +64,21 @@ class MilvusClient:
             print(f"Error: {e}")
             return
         
-        # hàm chèn các vector vào
-        def insert(self, item_id, vector):
+    # hàm chèn các vector vào
+    def insert(self, item_id, vector):
             try:
-
                 # gọi lại milvus
                 collection = Collection(COLLECTION_NAME)
                 # chèn vào nhưng cái này mới trên ram
                 collection.insert([[item_id], [vector]])
-                # đưa vô ổ cứng
-                collection.flush()
+                
                 print(f"Inserted ID: {item_id}")
                 return True
             except Exception as e:
                 print(f"Error: {e}")
                 return False
 
-        def search(self, vector_query, top_k):
+    def search(self, vector_query, top_k):
             try:
                 # kết nối lại với milvus
                 collection = Collection(COLLECTION_NAME)

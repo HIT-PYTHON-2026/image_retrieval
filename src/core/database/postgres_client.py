@@ -67,12 +67,12 @@ class PostgreSQL:
                     userID VARCHAR(50),
                     product_ID INTEGER,
                     rating INTEGER CHECK (rating >= 1 AND rating <= 5),
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
-                    PRIMARY_KEY(userID, ID)
+                    PRIMARY KEY(userID, product_ID),
 
                     CONSTRAINT fk_user
-                        FOREIGN KEY(user_ID)
+                        FOREIGN KEY(userID)
                         REFERENCES users(userID) ON DELETE CASCADE,
 
                     CONSTRAINT fk_product
@@ -80,13 +80,28 @@ class PostgreSQL:
                         REFERENCES product_metadata(ID) ON DELETE CASCADE
                 )
                 """
+
+                query4 = """ CREATE TABLE IF NOT EXISTS search_history(
+                                search_id SERIAL PRIMARY KEY,
+                                userID VARCHAR(50),
+                                query_image_path TEXT,
+                                search_results JSONB,
+                                created_at TIMESTAMP CURRENT_TIMESTAP
+
+                                CONSTRAINT fk_user_history
+                                    FOREIGN KEY(userID)
+                                    REFERENCES users(users_id)
+                                    ON DELETE CASCADE
+                );
+                """
                 self.cur.execute(query1)
                 self.cur.execute(query2)
                 self.cur.execute(query3)
+                self.cur.execute(query4)
                 self.db.commit()
                 print("create table production metadata successfully")
             except Exception as e:
-                print("Error: {e}")
+                print(f"Error: {e}")
                 return
         
     def insert_data(self, csv_data, image_path):
@@ -206,4 +221,20 @@ class PostgreSQL:
         except Exception as e:
             self.db.rollback()
             print(f"Error: {e}")
+            return False
+    
+    def search_history(self, user_id, query_image_path, results_id ):
+        try:
+            import json
+            query = """
+                    INSERT INTO search_history (userID, query_image_path, search_results)
+                    VALUES (%s, %s, %s)
+            """
+            results_json = json.dumps(results_id)
+            self.cur.execute(query, (user_id, query_image_path, results_json))
+            self.db.commit()
+            print(f"logged search history for user : {user_id}")
+            return True
+        except Exception as e:
+            print(f"Error : {e}")
             return False
