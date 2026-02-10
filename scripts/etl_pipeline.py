@@ -13,6 +13,29 @@ from src.core.storage.MinIO_client import MinioClient
 from src.models.feature_extractor import FeatureExtractor
 from src.utils.constants import DATA_PATH, COLLECTION_NAME, BUCKET_NAME
 
+"""
+etl pipeline cho dự án
+
+dùng để upload dữ liệu lên cho dự án
+dùng postgreSQL lưu thông tin ở csv
+dùng MinIO để lưu ảnh
+dùng Milvus lưu vector_feature
+
+workflow:
+    - khởi tạo 3 database và model
+    - đọc thông tin từ csv
+    - lưu ảnh vào minio
+    - lưu vector đặc trưng vào milvus
+    - lưu thông tin và đường dẫn vào postgreSQL
+
+Prerequisites:
+    - chạy docker-compose up -d 
+    - có file storage/data/images và styles.csv
+
+bấm run python file hoặc dùng terminal: $ python -m scripts.etl_pipeline
+là nó sẽ tự up data lên hết (có)
+"""
+
 def main():
     print("Starting etl pipeline")
 
