@@ -30,10 +30,11 @@ workflow:
 
 Prerequisites:
     - chạy docker-compose up -d 
-    - có file storage/data/images và styles.csv
+    - có file trong storage/data/images và styles.csv
 
 bấm run python file hoặc dùng terminal: $ python -m scripts.etl_pipeline
 là nó sẽ tự up data lên hết 
+(thử để df = df.head(10) ở dòng 57 để chạy thử xem có báo lỗi ko (chạy 10 thằng đầu trc để xem có lỗi ko nhé))
 """
 
 def main():
@@ -53,7 +54,7 @@ def main():
     try:
         csv_path = os.path.join(DATA_PATH, "styles.csv")
         df = pd.read_csv(csv_path, on_bad_lines= 'skip')
-        df = df.head(20)
+        #df = df.head(10)
         print("read csv successfully")
     except Exception as e:
         print(f"Error : {e}")
