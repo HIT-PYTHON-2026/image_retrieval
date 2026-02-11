@@ -62,7 +62,7 @@ class FeatureExtractor:
                 feature = self.model(tensor)
                 
                 #duỗi thằng vector đặc trưng
-                feature = torch.flatten(feature, start_dim=1)
+                feature = torch.flatten()
 
             return feature.cpu().numpy()
         except Exception as e:
