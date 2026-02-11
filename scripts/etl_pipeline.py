@@ -10,7 +10,7 @@ sys.path.append(parent_dir)
 from src.core.database.milvus_client import MilvusClient, Collection
 from src.core.database.postgres_client import PostgreSQL
 from src.core.storage.MinIO_client import MinioClient
-from src.models.feature_extractor import FeatureExtractor
+from src.core.models.feature_extractor import FeatureExtractor
 from src.utils.constants import DATA_PATH, COLLECTION_NAME, BUCKET_NAME
 
 """
@@ -54,7 +54,7 @@ def main():
     try:
         csv_path = os.path.join(DATA_PATH, "styles.csv")
         df = pd.read_csv(csv_path, on_bad_lines= 'skip')
-        #df = df.head(10)
+        df = df.head(20)
         print("read csv successfully")
     except Exception as e:
         print(f"Error : {e}")
@@ -80,7 +80,7 @@ def main():
 
                 if minio_path is None:
                      continue
-                vectore_feature = models.extract(image_path)
+                vectore_feature = models.extract_features(image_path)
                 milvus.insert(int(item_id), vectore_feature)
 
                 data = row.to_dict()
