@@ -34,9 +34,15 @@ class MinioClient:
     def upload_file(self, image_path, object_id, bucket_name):
         try:
             # cắt ra lấy cái đuôi jpg
-            a, ext = os.path.split(image_path)
+            if(bucket_name == BUCKET_NAME):
+                a, ext = os.path.split(image_path)
 
-            final_object = f"{object_id}.{ext}"
+                final_object = f"{object_id}.{ext}"
+            else:
+                _, ext = os.path.splitext(image_path)
+                if not ext: ext = ".jpg" # Phòng hờ không có đuôi
+                final_object = f"{object_id}{ext}"
+                
             # đẩy ảnh lên minio
             self.minio.fput_object(bucket_name= bucket_name,
                                    object_name= final_object,
