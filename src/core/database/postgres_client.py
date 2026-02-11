@@ -86,11 +86,11 @@ class PostgreSQL:
                                 userID VARCHAR(50),
                                 query_image_path TEXT,
                                 search_results JSONB,
-                                created_at TIMESTAMP CURRENT_TIMESTAP
+                                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
                                 CONSTRAINT fk_user_history
                                     FOREIGN KEY(userID)
-                                    REFERENCES users(users_id)
+                                    REFERENCES users(userID)
                                     ON DELETE CASCADE
                 );
                 """
@@ -129,7 +129,8 @@ class PostgreSQL:
                 print(f"Add product {csv_data.get('id')} successfully")
                 return
             except Exception as e:
-                print("Error: {e}")
+                self.db.rollback()
+                print(f"Error: {e}")
                 return
             
     def search_data(self, product_ids):
