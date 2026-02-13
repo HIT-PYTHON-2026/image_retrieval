@@ -1,22 +1,22 @@
 from src.utils.constants import ( PG_DB, PG_USER, PG_PASSWORD, PG_HOST, PG_PORT)
 
 import psycopg2
-           
+import json
+
 class PostgreSQL:
     """
-    Handles interactions with the PostgreSQL database for the Fashion Search project.
-
-    This class manages:
-    1. Connection to the PostgreSQL server.
-    2. Initialization of database schemas (Products, Users, Ratings).
-    3. CRUD operations for product metadata and user ratings.
-    4. Complex logic for handling user rating updates (insert vs update).
-
-    Attributes:
-        db (psycopg2.extensions.connection): The active database connection.
-        cur (psycopg2.extensions.cursor): The cursor for executing SQL queries.
+    Class quản lý tương tác với PostgreSQL Database cho dự án Fashion Search.
+    
+    Chức năng chính:
+    1. Quản lý kết nối (Connection) và con trỏ (Cursor).
+    2. Khởi tạo cấu trúc bảng (Schema).
+    3. Các thao tác CRUD (Thêm, Sửa, Lấy dữ liệu) cho sản phẩm và người dùng.
+    4. Xử lý logic tính điểm đánh giá (Rating) phức tạp.
     """
     def __init__(self):
+            """
+            Khởi tạo kết nối đến database và tự động tạo bảng nếu chưa có.
+            """
             try: 
                 self.db = psycopg2.connect(database = PG_DB, user = PG_USER, password = PG_PASSWORD,
                                        host=PG_HOST, port=PG_PORT)
@@ -31,6 +31,13 @@ class PostgreSQL:
                 return
         
     def create_table(self):
+            """
+            Tạo 4 bảng chính:
+            1. product_metadata: Thông tin sản phẩm.
+            2. users: Thông tin người dùng.
+            3. user_rating: Lưu điểm đánh giá của user cho sản phẩm.
+            4. search_history: Lưu lịch sử tìm kiếm bằng hình ảnh.
+            """
             try:
                 # tạo bảng sản phẩm
                 query1  = """ 
@@ -105,6 +112,10 @@ class PostgreSQL:
                 return
         
     def insert_data(self, csv_data, image_path):
+            """
+            Thêm thông tin một sản phẩm mới vào bảng product_metadata.
+            Được sử dụng trong quá trình ETL Pipeline.
+            """
             try:
                 # để %s này tí truyền cho dễ 
                 query = """ INSERT INTO product_metadata 
@@ -134,6 +145,16 @@ class PostgreSQL:
                 return
             
     def search_data(self, product_ids):
+            """
+            Lấy thông tin chi tiết của một danh sách các sản phẩm theo ID.
+            Thường được gọi sau khi Milvus trả về danh sách ID tương đồng.
+            
+            Args:
+                product_ids (list): Danh sách ID sản phẩm (VD: [1163, 2245]).
+                
+            Returns:
+                list[dict]: Danh sách các dictionary chứa thông tin chi tiết và điểm đánh giá trung bình.
+            """
             try:
                 # kiểm tra xem nó rỗng không
                 if(not product_ids):
@@ -175,9 +196,14 @@ class PostgreSQL:
                 return []
     
     def update_rating(self, user_id, product_id, new_rating):
+        """
+        Xử lý logic đánh giá sản phẩm:
+        - Nếu user chưa đánh giá: Thêm dòng mới vào user_rating, cộng điểm vào bảng sản phẩm.
+        - Nếu user đã đánh giá: Cập nhật dòng cũ, tính toán lại điểm chênh lệch (delta) và cập nhật bảng sản phẩm.
+        """
         try:
             check_query = """ SELECT rating FROM user_rating
-                                WHERE userID = %s AND productID = %s
+                                WHERE userID = %s AND product_ID = %s
                         """
             self.cur.execute(check_query, (user_id, product_id))
             result = self.cur.fetchone()
@@ -185,13 +211,13 @@ class PostgreSQL:
             if result is None:
                 print(f"User {user_id} rating new product {product_id}")
 
-                insert_history = """INSERT INTO user_rating (userID, productID, rating) 
+                insert_history = """INSERT INTO user_rating (userID, product_ID, rating) 
                                     VALUES (%s, %s, %s)"""
                 self.cur.execute(insert_history, (user_id, product_id, new_rating))
 
                 update_product = """ UPDATE product_metadata
                                 SET Total_Rating_Score = Total_Rating_Score + %s,
-                                    Rating_Count = Rating_Count + 1
+                                    Count_Rating = Count_Rating + 1
                                 WHERE ID = %s
                 """
                 self.cur.execute(update_product, (new_rating, product_id))
@@ -205,15 +231,15 @@ class PostgreSQL:
                 print(f"User {user_id} updating rating from {old_rating} to {new_rating}")
 
                 
-                update_history = "UPDATE user_ratings SET rating = %s WHERE user_id = %s AND product_id = %s"
+                update_history = "UPDATE user_rating SET rating = %s WHERE userID = %s AND product_ID = %s"
                 self.cur.execute(update_history, (new_rating, user_id, product_id))
                 
                 delta = new_rating - old_rating
                 
                 update_product = """
                     UPDATE product_metadata 
-                    SET total_rating_score = total_rating_score + %s
-                    WHERE id = %s
+                    SET Total_Rating_Score = Total_Rating_Score + %s
+                    WHERE ID = %s
                 """
                 self.cur.execute(update_product, (delta, product_id))
                       
@@ -224,9 +250,17 @@ class PostgreSQL:
             print(f"Error: {e}")
             return False
     
-    def search_history(self, user_id, query_image_path, results_id ):
+    def log_search_history(self, user_id, query_image_path, results_id ):
+        """
+        Ghi lại lịch sử tìm kiếm của người dùng.
+        
+        Args:
+            user_id (str): ID người dùng.
+            query_image_path (str): URL ảnh trên MinIO mà người dùng đã upload để tìm kiếm.
+            results_id (list): Danh sách ID các sản phẩm kết quả.
+        """
         try:
-            import json
+            
             query = """
                     INSERT INTO search_history (userID, query_image_path, search_results)
                     VALUES (%s, %s, %s)
@@ -237,5 +271,38 @@ class PostgreSQL:
             print(f"logged search history for user : {user_id}")
             return True
         except Exception as e:
+            self.db.rollback()
             print(f"Error : {e}")
             return False
+        
+    def get_search_history(self, user_id):
+        """
+        Lấy danh sách lịch sử tìm kiếm của một User.
+        Kết quả được sắp xếp theo thời gian mới nhất lên đầu.
+        
+        Returns:
+            list[dict]: Gồm đường dẫn ảnh, kết quả tìm kiếm và thời gian.
+        """
+        try:
+            query = """
+                    SELECT query_image_path, search_results, created_at 
+                    FROM search_history 
+                    WHERE userID = %s 
+                    ORDER BY created_at DESC
+            """
+
+            self.cur.execute(query, (user_id, ))
+            rows = self.cur.fetchall()
+
+            history = []
+            for row in rows:
+                 history.append({
+                      "image_path": row[0],
+                      "results": row[1],
+                      "timestamp": row[2]
+                 })
+
+            return history
+        except Exception as e:
+            print(f"Error: {e}")
+    
