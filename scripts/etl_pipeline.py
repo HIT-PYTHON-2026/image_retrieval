@@ -54,7 +54,6 @@ def main():
     try:
         csv_path = os.path.join(DATA_PATH, "styles.csv")
         df = pd.read_csv(csv_path, on_bad_lines= 'skip')
-        df = df.head(20)
         print("read csv successfully")
     except Exception as e:
         print(f"Error : {e}")
@@ -76,7 +75,7 @@ def main():
                 if not image_path:
                      continue
                 
-                minio_path = minio.upload_file(image_path, item_name, BUCKET_NAME)
+                minio_path = minio.upload_file(image_path, item_id, BUCKET_NAME)
 
                 if minio_path is None:
                      continue
