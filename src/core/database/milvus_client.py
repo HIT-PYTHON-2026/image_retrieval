@@ -24,7 +24,12 @@ class MilvusClient:
                                 port= MILVUS_PORT,
                                 
                                 host = MILVUS_HOST)
-            self.create_collection()
+            if utility.has_collection(collection_name= COLLECTION_NAME):
+                self.collection = Collection(COLLECTION_NAME)
+                self.collection.load()
+                print(f"Loaded existing collection {COLLECTION_NAME}")
+            else:
+                self.create_collection()
             print("connect to milvus successfully")
         except Exception as e:
             print(f"error: {e}")
@@ -92,7 +97,7 @@ class MilvusClient:
                 # kết quả đưa ra mảng to thì cái chỉ số 0 là đáp án đúng
                 # chứa id và khoảng cách vector_query với vector trong kho
                 SearchResult = collection.search([vector_query], param= search_params,
-                                   anns_field= "embedding", limit= top_k)
+                                   anns_field= "embedding", limit = top_k)
                 
                 results = []
 
@@ -102,8 +107,8 @@ class MilvusClient:
 
                     results.append({
                         "id": item.id,
-                        "score": score,
-                        "distance": item.disance
+                        "score": round(score, 2),
+                        "distance": item.distance
                     })
                 
                 print(f"Found {len(results)} results ")
