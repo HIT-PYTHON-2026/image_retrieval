@@ -2,6 +2,7 @@ from src.utils.constants import ( PG_DB, PG_USER, PG_PASSWORD, PG_HOST, PG_PORT)
 
 import psycopg2
 import json
+import uuid
 
 class PostgreSQL:
     """
@@ -37,38 +38,43 @@ class PostgreSQL:
             2. users: Thông tin người dùng.
             3. user_rating: Lưu điểm đánh giá của user cho sản phẩm.
             4. search_history: Lưu lịch sử tìm kiếm bằng hình ảnh.
+            5. cart_items : bảng lưu giỏ hàng
             """
             try:
                 # tạo bảng sản phẩm
-                query1  = """ 
+                query1 = """
                 CREATE TABLE IF NOT EXISTS product_metadata (
-                ID INTEGER PRIMARY KEY,
-                Gender VARCHAR(6),
-                MasterCategory VARCHAR(50),
-                SubCategory VARCHAR(50),
-                ArticleType VARCHAR(50),
-                BaseColour VARCHAR(50),
-                Season VARCHAR(50),
-                Year INTEGER,
-                Usage VARCHAR(50),
-                ProductDisplayName TEXT,
-                ImagePath text,
-                -- ĐỂ CHO CHỨC NĂNG TÍNH ĐIỂM SẢN PHẨM
-                Total_Rating_Score INTEGER DEFAULT 0,
-                Count_Rating INTEGER DEFAULT 0
-                ) 
+                    ID INTEGER PRIMARY KEY,
+                    Gender VARCHAR(6),
+                    MasterCategory VARCHAR(50),
+                    SubCategory VARCHAR(50),
+                    ArticleType VARCHAR(50),
+                    BaseColour VARCHAR(50),
+                    Season VARCHAR(50),
+                    Year INTEGER,
+                    Usage VARCHAR(50),
+                    ProductDisplayName TEXT,
+                    ImagePath TEXT,
+                    Total_Rating_Score INTEGER DEFAULT 0,
+                    Count_Rating INTEGER DEFAULT 0,
+                    -- THÊM 2 CỘT MỚI Ở ĐÂY:
+                    is_active BOOLEAN DEFAULT TRUE,
+                    brand_id VARCHAR(50) 
+                )
                 """
                 # tạo bảng user
                 query2 = """
                 CREATE TABLE IF NOT EXISTS users (
                     userID VARCHAR(50) PRIMARY KEY,
                     full_name TEXT,
-                    email TEXT,
+                    password_hash VARCHAR(255) NOT NULL,
+                    email TEXT UNIQUE NOT NULL,
+                    role VARCHAR(20) DEFAULT 'customer', -- 'brand' or 'customer'
+                    gender VARCHAR(10),
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
                 """
                 # tạo bảng lưu lịch sử user
-
                 query3 = """ 
                 CREATE TABLE IF NOT EXISTS user_rating (
                     userID VARCHAR(50),
@@ -77,7 +83,7 @@ class PostgreSQL:
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
                     PRIMARY KEY(userID, product_ID),
-
+                    UNIQUE(userID, product_ID),
                     CONSTRAINT fk_user
                         FOREIGN KEY(userID)
                         REFERENCES users(userID) ON DELETE CASCADE,
@@ -88,6 +94,7 @@ class PostgreSQL:
                 )
                 """
 
+                # lịch sử tra cứu
                 query4 = """ CREATE TABLE IF NOT EXISTS search_history(
                                 search_id SERIAL PRIMARY KEY,
                                 userID VARCHAR(50),
@@ -101,10 +108,22 @@ class PostgreSQL:
                                     ON DELETE CASCADE
                 );
                 """
+                # bảng giỏ hàng
+                query5 = """
+                CREATE TABLE IF NOT EXISTS cart_items(
+                    record_id SERIAL PRIMARY KEY,
+                    user_id VARCHAR(50) REFERENCES users(userID) ON DELETE CASCADE,
+                    product_id INTEGER REFERENCES product_metadata(ID) ON DELETE CASCADE,
+                    status VARCHAR(50) DEFAULT 'Unpaid',
+                    order_batch_id VARCHAR(100),
+                    added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+                """
                 self.cur.execute(query1)
                 self.cur.execute(query2)
                 self.cur.execute(query3)
                 self.cur.execute(query4)
+                self.cur.execute(query5)
                 self.db.commit()
                 print("create table production metadata successfully")
             except Exception as e:
@@ -161,7 +180,7 @@ class PostgreSQL:
                     return []
                 
                 query = """SELECT * FROM product_metadata
-                            WHERE ID = ANY(%s) """
+                            WHERE ID = ANY(%s) AND is_active = TRUE"""
                 
                 # ép cho nó truyền một tuple 1 phần tử
                 self.cur.execute(query, (list(product_ids), ))
@@ -306,3 +325,235 @@ class PostgreSQL:
         except Exception as e:
             print(f"Error: {e}")
     
+    def create_user(self, user_id, email, password_hash, full_name, role, gender):
+        """lưu lại thông tin khách hàng"""
+        try:
+              query = """INSERT INTO users (userID, full_name, password_hash, email, role, gender)
+              VALUES (%s, %s, %s, %s, %s, %s)"""
+
+              self.cur.execute(query, (user_id, full_name, password_hash, email, role, gender))
+              self.db.commit()
+              print(f"Created user: {email}")
+              return True
+        except Exception as e:
+             self.db.rollback()
+             print(f"Error: {e}")
+             return False
+        
+    def get_user_by_email(self, email):
+        """
+            lấy thông tin khách hàng qua email sau này phục vụ việc hiển thị thông tin + check mật khẩu
+
+        """
+        try:
+             query = """
+                SELECT userID, email , full_name, password_hash, role, gender
+                FROM users
+                WHERE email = %s
+            """
+             
+             self.cur.execute(query, (email, ))
+             row = self.cur.fetchone()
+             if row:
+                  return{
+                       "userID" : row[0],
+                       "email"  : row[1],
+                       "full_name" : row[2],
+                       "password_hash" : row[3],
+                       "role" : row[4],
+                       "gender" : row[5]
+                  }
+             return None
+        except Exception as e:
+             print(f"Error: {e}")
+             return None
+    
+    def add_to_cart(self, userID, productID):
+        """
+            thêm sản phẩm vào giỏ hàng 
+            cần productID và userID 
+            khi này sẽ để sẵn trạng thái là Unpaid sang này thanh toán sẽ gói tất cả thành một giỏ hàng sau
+            nó sẽ trả về đúng khi (sản phẩm đã có trong giỏ hàng hoặc mới được thêm vào)
+            trả về sai khi có lỗi
+        """
+        try:
+             check_cart = """ SELECT record_id FROM cart_items 
+                            WHERE status = 'Unpaid' AND user_id = %s AND product_id = %s 
+                """
+             self.cur.execute(check_cart, (userID, productID))
+             if self.cur.fetchone():
+                  return True
+             query = """ INSERT INTO cart_items (user_id, product_id) VALUES (%s, %s)
+                """
+             self.cur.execute(query, (userID, productID))
+             self.db.commit()
+             return True
+        except Exception as e:
+             self.db.rollback()
+             print(f"Error: {e}")
+             return False
+        
+    def get_active_cart(self, user_id):
+         """
+            lấy giỏ hàng hiện tại (chính là gom tất cả những thằng Unpaid lại với nhau)
+            trong này sẽ trả về tất cả mặt hàng đã đặt mà chưa thanh toán, điểm đặc biệt là có cá những cái is_active = false
+            nếu người dùng thanh toán sau này sẽ thông báo những cái ko thanh toán được sau
+
+            return ra dictionary chứa thông tin của mỗi sản phẩm sau bấm vào xem chi tiết thì gọi hàm search data
+         """
+         try:
+            query = """
+                    SELECT p.ID, p.ProductDisplayName, p.ImagePath, c.added_at, p.is_active
+                    FROM cart_items c
+                    JOIN product_metadata p ON c.product_id = p.ID
+                    WHERE c.user_id = %s AND c.status = 'Unpaid' 
+                    ORDER BY c.added_at DESC
+                """
+            self.cur.execute(query, (user_id, ))
+            rows = self.cur.fetchall()
+            return [{"product_id": r[0], 
+                     "name": r[1], 
+                     "image": r[2], 
+                     "added_at" : r[3],  
+                     "is_active": r[4]} 
+                     for r in rows]
+
+         except Exception as e:
+              print(f"Error: {e}")
+              return []
+    
+    def checkout_cart(self, user_id):
+         """
+         Nút THANH TOÁN: Quét kiểm tra Ghost Product trước.
+        - Nếu có sản phẩm is_active = False -> Chặn lại và báo tên sản phẩm lỗi.
+        - Nếu ổn hết -> Mới cấp Batch ID và thanh toán.
+
+
+        return {
+            tin nhắn chứa trạng thái thành công hay không?
+            thông báo lỗi hoặc danh sách các sản phẩm không thanh toán được
+
+        }
+         """
+
+         try:
+              check_query = """
+                SELECT p.ProductDisplayName
+                FROM cart_items c
+                JOIN product_metadata p ON c.product_id = p.ID
+                WHERE c.user_id = %s AND c.status = 'Unpaid' AND p.is_active  = FALSE
+                """
+              self.cur.execute(check_query, (user_id, ))
+              invalid_items = self.cur.fetchall()
+
+              if invalid_items:
+                   invalid_names = [item[0] for item in invalid_items]
+                   error_msg = f"These products have been discontinued {', '.join(invalid_names)}"
+                   print(f"Blocked checkout: {error_msg}")
+
+                   return{
+                        "success": False,
+                        "message": error_msg,
+                        "invalid_items": invalid_names
+                   }
+              
+              new_batch_id = str(uuid.uuid4())[:8]
+
+              update_query = """
+                    UPDATE cart_items
+                    SET status = 'Paid',  order_batch_id =  %s
+                    WHERE user_id = %s AND status = 'Unpaid'
+                """
+              self.cur.execute(update_query, (new_batch_id, user_id))
+
+              if self.cur.rowcount == 0:
+                   return{
+                        "success": False,
+                        "message": "Your cart is empty"
+                   }
+              self.db.commit()
+              print(f"Purchased successfully with cart's code: {new_batch_id} ")
+              return{
+                   "success": True,
+                   "message" : "Purchased successfully"
+              }
+         except Exception as e:
+              self.db.rollback()
+              print(f"Error: {e}")
+              return {"success" : False,
+                      "message": "Have some system errors"}
+
+    def get_paid_history(self, user_id):
+         """
+            lấy lịch sử của tất cả các giỏ hàng đã thanh toán
+
+            đầu vào là mã người dùng
+
+            đầu ra là một dictionary chứa trong đó là mã giỏ hàng mỗi giỏ hàng lại chứa danh sách (tên + mã + đường dẫn ảnh) của riêng mỗi sản phẩm
+         """
+         try:
+              query = """
+                    SELECT c.order_batch_id, p.ID, p.ProductDisplayName, p.ImagePath
+                    FROM cart_items c
+                    JOIN product_metadata p ON c.product_id = p.ID
+                    WHERE c.user_id = %s AND c.status = 'Paid'
+                    ORDER BY c.added_at DESC
+                    """
+              self.cur.execute(query, (user_id, ))
+              rows = self.cur.fetchall()
+
+              history = {}
+              for row in rows:
+                batch_id = row[0]
+                item = {"product_id": row[1],
+                           "name" : row[2],
+                           "image": row[3]}
+                   
+                if batch_id not in history:
+                        history[batch_id] = []
+                history[batch_id].append(item)
+
+              return history
+         except Exception as e:
+              print(f"Error: {e}")
+              return {}
+         
+    def remove_from_cart(self, user_id, product_id):
+         """
+            Xóa một sản phẩm ở giỏ hàng chưa thanh toán 
+
+            đầu vào là user_id, product_id
+
+            return True hoặc False
+         """
+         try:
+             query = """ DELETE FROM cart_items WHERE user_id = %s AND product_id = %s AND status =  'Unpaid'
+                """
+             self.cur.execute(query, (user_id, product_id))
+             self.db.commit()
+             return True
+         except Exception as e:
+              self.db.rollback()
+              print(f"Error: {e}")
+              return False 
+         
+    def toggle_product_status(self, product_id, is_active):
+         """
+         hàm cập nhật trạng thái cho sản phẩm để xem nó có thể bán được hay không
+         
+         :param product_id: mã sản phẩm
+         :param is_active: trạng thái sẽ bán hay ko (TRUE, FALSE)
+
+         return True hoặc False
+         """
+         try:
+              query = """ UPDATE product_metadata SET is_active = %s
+                            WHERE ID = %s
+                """
+              self.cur.execute(query, (is_active, product_id))
+              self.db.commit()
+              return True
+         except Exception as e:
+              self.db.rollback()
+              print(f"Error: {e}")
+              return False
