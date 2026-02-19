@@ -6,6 +6,9 @@ from image_retrieval.src.utils.image_validator import ImageValidator
 
 
 class Validate_Image_Service:
+    '''
+    lớp kiểm tra tính hợp lệ của ảnh đầu vào
+    '''
     def __init__(self):
         self.validator = ImageValidator()
 
