@@ -4,6 +4,7 @@ import uvicorn
 
 from src.app.routers.auth import router as auth_router
 from src.app.routers.search import router as search_router
+from src.app.routers.user_activity import router as user_activity_router
 
 app = FastAPI(title= "Fashion image retrieval",
               description= "Backend system for fashion image retrieval by AI ",
@@ -33,4 +34,5 @@ app.add_middleware(
 
 app.include_router(auth_router, tags=["Authentication"])
 app.include_router(search_router, tags=["AI Search"])
+app.include_router(user_activity_router, tags=["User Activity"])
 
