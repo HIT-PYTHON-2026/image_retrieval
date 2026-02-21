@@ -2,8 +2,8 @@ from typing import Tuple, Optional
 
 import numpy as np
 
-from image_retrieval.src.utils.image_validator import ImageValidator
-
+# from image_retrieval.src.utils.image_validator import ImageValidator
+from src.utils.image_validator import ImageValidator
 
 class Validate_Image_Service:
     '''
@@ -44,8 +44,12 @@ class Validate_Image_Service:
         if image is None:
             return False, "Không thể đọc file ảnh. File có thể bị hỏng hoặc không phải ảnh", None
 
-        is_valid, error_msg = self.validator.validate_image(image)
-        if not is_valid:
-            return False, error_msg, None
+        # is_valid, error_msg = self.validator.validate_image(image)
+        # if not is_valid:
+        #     return False, error_msg, None
 
+        is_valid = self.validator.validate_image(image)
+        if not is_valid:
+            return False, "Ảnh bị mờ hoặc sai kích thước quy định. Vui lòng chụp lại!", None
+        
         return True, "Ảnh hợp lệ và đạt yêu cầu chất lượng", image
