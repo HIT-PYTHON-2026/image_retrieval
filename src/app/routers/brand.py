@@ -37,9 +37,7 @@ async def get_history_brand(brand_id: str):
 async def update_product_status(product_id: int, request: StatusUpdateRequest):
     try:
         if db.toggle_product_status(product_id, request.is_active):
-            return True, { 
-                "message" : "Update status successfully"
-            }
+            return {"message": "Update status successfully"}
         raise HTTPException(status_code=400, detail="Không thể cập nhật trạng thái (Sản phẩm không tồn tại)")
     except HTTPException:
         raise
@@ -85,10 +83,8 @@ async def add_new_product(
         }
 
         if brand_services.process_new_product(image_bytes, image_infor, brand_id):
-            return True, {
-                "message": "add merchandise successfully"
-            }
-        return False
+            return {"message": "add merchandise successfully"}
+        raise HTTPException(status_code=500, detail="Không thể thêm sản phẩm")
     except HTTPException:
         raise
     except Exception as e:

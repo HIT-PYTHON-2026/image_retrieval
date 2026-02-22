@@ -15,7 +15,6 @@ class BrandService:
         except Exception as e:
             print(f"Error Initialize BrandService: {e}")
 
-    # Đã sửa brand__id thành brand_id
     def process_new_product(self, image_query, image_infor, brand_id):
 
         product_id = image_infor.get('ID') 
