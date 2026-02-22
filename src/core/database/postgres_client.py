@@ -563,17 +563,14 @@ class PostgreSQL:
         Lấy toàn bộ danh sách sản phẩm của một chủ shop (brand_id).
         """
         try:
-            with self.conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
-                # Sắp xếp theo ID giảm dần để đồ mới đăng hiện lên đầu
-                query = """
-                    SELECT * FROM product_metadata
-                    WHERE brand_id = %s 
-                    ORDER BY id DESC;
-                """
-                cursor.execute(query, (brand_id,))
-                results = cursor.fetchall()
-                
-                return results
+            query = """
+                SELECT * FROM product_metadata
+                WHERE brand_id = %s 
+                ORDER BY id DESC;
+            """
+            self.cur.execute(query, (brand_id,))
+            rows = self.cur.fetchall()
+            return rows
         except Exception as e:
             print(f"Lỗi khi lấy danh sách sản phẩm theo brand_id: {e}")
             return []
@@ -583,22 +580,20 @@ class PostgreSQL:
         Thêm mới sản phẩm do Brand đăng tải. Tách biệt với ETL Pipeline.
         """
         try:
-            with self.conn.cursor() as cursor:
-                query = """
-                    INSERT INTO product_metadata 
-                            (ID, Gender, MasterCategory, SubCategory, ArticleType, BaseColour, Season, Year, Usage, ProductDisplayName, ImagePath, brand_id)
-                            VALUES (%(ID)s, %(Gender)s, %(MasterCategory)s, %(SubCategory)s, %(ArticleType)s, %(BaseColour)s, %(Season)s, %(Year)s, %(Usage)s, %(ProductDisplayName)s, %(ImagePath)s, %(brand_id)s)
-                """
-                
-                data_to_insert = product_data.copy()
-                data_to_insert['ImagePath'] = image_path
-                data_to_insert['brand_id'] = brand_id
-                
-                cursor.execute(query, data_to_insert)
-                self.conn.commit()
-                return True
+            query = """
+                INSERT INTO product_metadata 
+                        (ID, Gender, MasterCategory, SubCategory, ArticleType, BaseColour, Season, Year, Usage, ProductDisplayName, ImagePath, brand_id)
+                        VALUES (%(ID)s, %(Gender)s, %(MasterCategory)s, %(SubCategory)s, %(ArticleType)s, %(BaseColour)s, %(Season)s, %(Year)s, %(Usage)s, %(ProductDisplayName)s, %(ImagePath)s, %(brand_id)s)
+            """
+            data_to_insert = product_data.copy()
+            data_to_insert['ImagePath'] = image_path
+            data_to_insert['brand_id'] = brand_id
+            
+            self.cur.execute(query, data_to_insert)
+            self.db.commit()
+            return True
                 
         except Exception as e:
             print(f"Lỗi khi Brand thêm sản phẩm mới: {e}")
-            self.conn.rollback() # Nếu lỗi thì hoàn tác, không làm hỏng Database
+            self.db.rollback()
             return False
