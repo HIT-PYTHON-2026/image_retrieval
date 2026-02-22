@@ -315,9 +315,19 @@ class PostgreSQL:
 
             history = []
             for row in rows:
+                 product_ids = row[1] if row[1] else []
+                 # Lấy chi tiết các sản phẩm từ danh sách ID
+                 detailed_results = self.search_data(product_ids)
+                 
+                 # Format lại ảnh tải lên theo chuẩn URL của MinIO
+                 query_img = row[0]
+                 from src.utils.constants import MINIO_ENDPOINT, QUERY_BUCKET
+                 if query_img and not query_img.startswith("http"):
+                     query_img = f"http://{MINIO_ENDPOINT}/{QUERY_BUCKET}/{query_img}"
+                 
                  history.append({
-                      "image_path": row[0],
-                      "results": row[1],
+                      "image_path": query_img,
+                      "results": detailed_results,
                       "timestamp": row[2]
                  })
 
