@@ -10,12 +10,24 @@ router = APIRouter()
 service_search = SearchService()
 val = Validate_Image_Service()
 
+"""
+    API tìm kiếm hình ảnh theo yêu cầu
+"""
 
 @router.post("/api/v1/search", tags=["AI Search"])
 async def search_product_by_image(
         user_id: str = Form(...), # id gửi đi kèm 
         file: UploadFile = File(...) # ảnh yêu cầu
     ):
+    """
+        đầu vào :
+        - user_id
+        - file: file ảnh yêu cầu
+
+        đầu ra:
+        - có bắt lỗi và thông báo tin nhắn lỗi
+        - nếu tìm được thì gửi thông báo thành công và đưa kết quả
+    """
     try:
         image_bytes = await file.read()
 
@@ -24,7 +36,7 @@ async def search_product_by_image(
         if not is_valid:
             raise HTTPException(status_code=400, detail= message)
         
-        results = service_search.search_image(user_id, image_bytes)
+        results = service_search.search_image(user_id, image_bytes, top_k=50)
 
         return {
             "message" : "Found successfully",
