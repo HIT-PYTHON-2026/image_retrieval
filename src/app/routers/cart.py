@@ -1,9 +1,10 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from src.core.database.postgres_client import db
+from src.core.database.postgres_client import PostgreSQL
 
 router = APIRouter()
+db = PostgreSQL()
 
 class CartActionRequest(BaseModel):
     user_id: str
