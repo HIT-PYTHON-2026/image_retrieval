@@ -63,4 +63,3 @@ async def rate_product(request: RatingRequest):
         print(f"Error: {e}")
         raise HTTPException(status_code=500, detail="Lỗi hệ thống khi lưu đánh giá")
 
-

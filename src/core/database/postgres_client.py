@@ -263,7 +263,8 @@ class PostgreSQL:
                 self.cur.execute(update_product, (delta, product_id))
                       
             self.db.commit()
-            print("Rating updated successfully")     
+            print("Rating updated successfully")
+            return True     
         except Exception as e:
             self.db.rollback()
             print(f"Error: {e}")
@@ -334,7 +335,7 @@ class PostgreSQL:
             return history
         except Exception as e:
             print(f"Error: {e}")
-    
+            return []
     def create_user(self, user_id, email, password_hash, full_name, role, gender):
         """lưu lại thông tin khách hàng"""
         try:
@@ -413,7 +414,10 @@ class PostgreSQL:
          """
          try:
             query = """
-                    SELECT p.ID, p.ProductDisplayName, p.ImagePath, c.added_at, p.is_active
+                    SELECT p.ID, p.ProductDisplayName, p.ImagePath, 
+                           p.Gender, p.ArticleType, p.BaseColour, p.Season, p.Usage,
+                           p.MasterCategory, p.brand_id,
+                           c.added_at, p.is_active
                     FROM cart_items c
                     JOIN product_metadata p ON c.product_id = p.ID
                     WHERE c.user_id = %s AND c.status = 'Unpaid' 
@@ -421,12 +425,20 @@ class PostgreSQL:
                 """
             self.cur.execute(query, (user_id, ))
             rows = self.cur.fetchall()
-            return [{"product_id": r[0], 
-                     "name": r[1], 
-                     "image": r[2], 
-                     "added_at" : r[3],  
-                     "is_active": r[4]} 
-                     for r in rows]
+            return [{
+                "product_id": r[0],
+                "name":       r[1],
+                "imagepath":  r[2],   
+                "Gender":     r[3],
+                "ArticleType": r[4],
+                "BaseColour": r[5],
+                "Season":     r[6],
+                "Usage":      r[7],
+                "MasterCategory": r[8],
+                "brand_id":   r[9],
+                "added_at":   str(r[10]) if r[10] else '',
+                "is_active":  r[11]
+            } for r in rows]
 
          except Exception as e:
               print(f"Error: {e}")
@@ -495,15 +507,13 @@ class PostgreSQL:
 
     def get_paid_history(self, user_id):
          """
-            lấy lịch sử của tất cả các giỏ hàng đã thanh toán
-
-            đầu vào là mã người dùng
-
-            đầu ra là một dictionary chứa trong đó là mã giỏ hàng mỗi giỏ hàng lại chứa danh sách (tên + mã + đường dẫn ảnh) của riêng mỗi sản phẩm
+            Lấy lịch sử của tất cả các giỏ hàng đã thanh toán.
+            Trả về list[dict] với cấu trúc:
+            [{ order_batch_id, items: [{product_id, name, imagepath}] }]
          """
          try:
               query = """
-                    SELECT c.order_batch_id, p.ID, p.ProductDisplayName, p.ImagePath
+                    SELECT c.order_batch_id, c.added_at, p.ID, p.ProductDisplayName, p.ImagePath
                     FROM cart_items c
                     JOIN product_metadata p ON c.product_id = p.ID
                     WHERE c.user_id = %s AND c.status = 'Paid'
@@ -512,21 +522,29 @@ class PostgreSQL:
               self.cur.execute(query, (user_id, ))
               rows = self.cur.fetchall()
 
-              history = {}
+              # Gom nhóm theo order_batch_id
+              orders_dict = {}
               for row in rows:
-                batch_id = row[0]
-                item = {"product_id": row[1],
-                           "name" : row[2],
-                           "image": row[3]}
-                   
-                if batch_id not in history:
-                        history[batch_id] = []
-                history[batch_id].append(item)
+                batch_id = str(row[0]) if row[0] else 'unknown'
+                updated_at = str(row[1]) if row[1] else ''
+                item = {
+                    "product_id": row[2],
+                    "name": row[3],
+                    "imagepath": row[4]
+                }
+                if batch_id not in orders_dict:
+                    orders_dict[batch_id] = {
+                        "order_batch_id": batch_id,
+                        "created_at": updated_at,
+                        "items": []
+                    }
+                orders_dict[batch_id]["items"].append(item)
 
-              return history
+              # Trả về list (không phải dict) để frontend có thể .map()
+              return list(orders_dict.values())
          except Exception as e:
               print(f"Error: {e}")
-              return {}
+              return []
          
     def remove_from_cart(self, user_id, product_id):
          """
@@ -571,16 +589,23 @@ class PostgreSQL:
     def get_products_by_brand_id(self, brand_id: str):
         """
         Lấy toàn bộ danh sách sản phẩm của một chủ shop (brand_id).
+        Trả về list[dict] với đầy đủ field names.
         """
         try:
             query = """
-                SELECT * FROM product_metadata
+                SELECT ID, ProductDisplayName, ImagePath, 
+                       Gender, ArticleType, BaseColour, Season, Usage,
+                       MasterCategory, SubCategory, Year, brand_id, is_active,
+                       CASE WHEN Count_Rating > 0 THEN ROUND((Total_Rating_Score::numeric / Count_Rating), 1) ELSE 0 END as avg_rating,
+                       Count_Rating as total_reviews
+                FROM product_metadata
                 WHERE brand_id = %s 
                 ORDER BY id DESC;
             """
             self.cur.execute(query, (brand_id,))
             rows = self.cur.fetchall()
-            return rows
+            cols = [d[0] for d in self.cur.description]
+            return [dict(zip(cols, row)) for row in rows]
         except Exception as e:
             print(f"Lỗi khi lấy danh sách sản phẩm theo brand_id: {e}")
             return []
@@ -607,3 +632,35 @@ class PostgreSQL:
             print(f"Lỗi khi Brand thêm sản phẩm mới: {e}")
             self.db.rollback()
             return False
+    
+    def get_top_rated_products(self, limit=10):
+        """
+            Lấy danh sách sản phẩm có điểm trung bình cao nhất.
+            Bảng: user_rating (cột: userID, product_ID, rating)
+            Đầu ra: list of dict có đầy đủ thông tin sản phẩm + avg_rating + total_reviews
+        """
+        try:
+            query = """
+                SELECT p.ID as product_id,
+                       p.ProductDisplayName,
+                       p.ImagePath as imagepath,
+                       p.Gender, p.MasterCategory, p.ArticleType,
+                       p.BaseColour, p.Season, p.Usage, p.brand_id,
+                       ROUND(AVG(r.rating)::numeric, 1) as avg_rating,
+                       COUNT(r.rating) as total_reviews
+                FROM product_metadata p
+                JOIN user_rating r ON p.ID = r.product_ID
+                WHERE p.is_active = TRUE
+                GROUP BY p.ID
+                HAVING COUNT(r.rating) > 0
+                ORDER BY avg_rating DESC, total_reviews DESC
+                LIMIT %s;
+            """
+            self.cur.execute(query, (limit,))
+            rows = self.cur.fetchall()
+            cols = [d[0] for d in self.cur.description]
+            return [dict(zip(cols, row)) for row in rows]
+        except Exception as e:
+            print(f"Lỗi khi lấy danh sách sản phẩm có điểm trung bình cao nhất: {e}")
+            self.db.rollback()
+            return []

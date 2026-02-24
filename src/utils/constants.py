@@ -26,3 +26,6 @@ PG_USER = "user"
 PG_PASSWORD = "password"
 PG_HOST = "localhost"
 PG_PORT = "5433"
+
+# 4 setup cấu hình ngưỡng tìm kiếm
+SIMILARITY_THRESHOLD = 0.90 # score tối thiểu để được coi là kết quả hợp lệ
