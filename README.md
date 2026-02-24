@@ -1,165 +1,144 @@
-# Image Retrieval System
+# 🛍️ VOGUE FIND - AI-Powered Fashion Image Retrieval System
 
-A scalable image retrieval system built with modern architecture, designed for efficient image search and similarity matching using deep learning models.
+![Vogue Find Banner](docs/banner.png) *(Illustrative: Feel free to add an actual project banner here)*
 
-## 🚀 Features
+VOGUE FIND is an advanced, full-stack fashion e-commerce platform that allows users to find clothing items simply by uploading a picture. Driven by Deep Learning and modern database technologies, the system instantly matches user-uploaded photos against thousands of products using visual feature similarity.
 
-- **Deep Learning Powered**: Utilizes pre-trained models for accurate image feature extraction
-- **RESTful API**: Clean API design for easy integration
-- **Modular Architecture**: Well-separated concerns for maintainability and scalability
-- **Efficient Storage**: Optimized image storage and retrieval mechanisms
-- **Comprehensive Testing**: Unit tests with pytest framework
+---
+
+## ✨ Key Features
+
+*   **🔍 AI Visual Search**: Upload an outfit image, and the system uses a **ResNet50** Deep Learning model to extract 2048-dimensional features, finding visually identical or highly similar products in milliseconds.
+*   **🛒 Full E-commerce Experience**: Browsing trending collections, adding products to the shopping cart, submitting product ratings, and reviewing purchase histories.
+*   **🏢 Brand Dashboard**: Dedicated portal for fashion brands/shop owners to upload new merchandise, toggle product availability, and track catalog statistics.
+*   **🔐 Authentication & Authorization**: Roles-based access control distinguishing between normal `user` and `brand` accounts.
+*   **⚙️ Configurable AI Thresholds**: Easily tune the strictness of the AI search directly from the backend configurations to avoid "trash" results.
+
+---
+
+## 🏗️ Technical Architecture & Stack
+
+The project relies on a robust architecture cleanly separating the UI, API layer, relational data, vector search, and object storage.
+
+### 🎨 Frontend
+*   **Framework**: React 18, Vite
+*   **Styling**: Tailwind CSS, PostCSS
+*   **Animation**: Framer Motion, Tailwindcss-animate
+*   **UI Components**: Radix UI, Lucide React (Icons), Sonner (Toasts)
+*   **Routing**: React Router DOM v6
+
+### ⚙️ Backend
+*   **Framework**: FastAPI (Python 3.9+)
+*   **Server**: Uvicorn (running on `http://localhost:8080`)
+*   **AI Model**: PyTorch, Pre-trained **ResNet50** 
+
+### 🗄️ Databases & Storage
+*   **🐘 PostgreSQL** (`localhost:5433`): Relational database storing user credentials, product metadata (price, color, category, name), search histories, and carts.
+*   **🟣 Milvus** (`localhost:19530`): Specialized Vector Database responsible for heavy-lifting similarity search operations (L2 distance / Cosine Similarity) on extracted image embeddings.
+*   **🪣 MinIO** (`localhost:9000`): S3-compatible Object Storage for saving all media assets.
+    *   `image` bucket: Houses the master product catalog images.
+    *   `user-queries` bucket: Temporarily/Permanently stores images uploaded by users for searching.
+
+---
 
 ## 📁 Project Structure
 
-```
+```text
 image_retrieval/
-├── .github/                 # GitHub configuration (CI/CD, workflows)
-├── docs/                    # Documentation files
-├── frontend/                # Frontend application (React/Vue/other)
-├── models/                  # Pre-trained model weights
-├── public/                  # Static assets and public files
-├── scripts/                 # Utility scripts and deployment tools
-├── src/
-│   ├── app/                 # API layer
-│   │   ├── app.py          # Main application entry point
-│   │   └── router.py       # API route definitions
-│   ├── core/               # Core business logic (privileged access)
-│   │   ├── models/         # Model loading and inference
-│   │   ├── database/       # Database operations
-│   │   └── services/       # Business logic services
-│   ├── external/           # External service integrations
-│   │   ├── api_clients/    # Third-party API clients
-│   │   └── services/       # External service wrappers
-│   ├── storage/            # Storage layer (direct access by core only)
-│   │   ├── image_store.py  # Image storage management
-│   │   └── file_manager.py # File handling utilities
-│   ├── test/               # Test suite
-│   │   ├── unit/           # Unit tests
-│   │   ├── integration/    # Integration tests
-│   │   └── conftest.py     # Pytest configuration
-│   └── utils/              # Utility functions
-│       ├── helper.py       # Common helper functions
-│       └── constants.py    # Application constants
-├── .gitignore             # Git ignore rules
-└── README.md              # This file
+├── frontend-react/         # React Frontend source code
+│   ├── src/
+│   │   ├── components/     # UI Components (Cards, Modals, Navbar)
+│   │   ├── context/        # React Context (AuthContext)
+│   │   ├── pages/          # Full page views (Home, Brand, Cart, Login)
+│   │   └── services/       # Axios API integration
+│   └── package.json        
+├── src/                    # FastAPI Backend source code
+│   ├── app/                
+│   │   ├── app.py          # Application entry point and CORS setup
+│   │   └── routers/        # API Controller endpoints (auth, search, cart...)
+│   ├── core/               
+│   │   ├── database/       # DB Clients (milvus_client.py, postgres_client.py)
+│   │   ├── models/         # ResNet50 feature_extractor.py
+│   │   └── services/       # Core business logic (auth, search, brand management)
+│   └── utils/
+│       └── constants.py    # System configs, Ports, and SIMILARITY_THRESHOLD
+├── venv/                   # Python Virtual Environment
+├── start_all.bat           # Macro script to boot frontend + backend
+├── start_backend.bat       # Startup script for FastAPI Server
+└── start_frontend.bat      # Startup script for Vite React app
 ```
 
-## 🏗️ Architecture
+---
 
-### Layer Design
+## 🚀 Getting Started
 
-```
-┌─────────────────────────────────────────────────────┐
-│                   Frontend Layer                     │
-│              (frontend/ directory)                   │
-└─────────────────────────────────────────────────────┘
-                        │
-                        ▼
-┌─────────────────────────────────────────────────────┐
-│                   API Layer                         │
-│              (src/app/ directory)                   │
-│  ┌──────────────┐  ┌──────────────┐                │
-│  │   app.py     │  │  router.py   │                │
-│  └──────────────┘  └──────────────┘                │
-└─────────────────────────────────────────────────────┘
-                        │
-                        ▼
-┌─────────────────────────────────────────────────────┐
-│                  Core Layer                          │
-│            (src/core/ directory)                    │
-│  ┌──────────────┐  ┌──────────────┐                │
-│  │   Models     │  │  Services    │                │
-│  └──────────────┘  └──────────────┘                │
-└─────────────────────────────────────────────────────┘
-                        │
-                        ▼
-┌─────────────────────────────────────────────────────┐
-│                 Storage Layer                       │
-│            (src/storage/ directory)                 │
-│  (Direct access only via Core layer)               │
-└─────────────────────────────────────────────────────┘
-```
+### Prerequisites
+Make sure your system has the following running before starting the servers:
+1. Python 3.9 or higher.
+2. Node.js (v18+) and npm.
+3. **Docker** (recommended) to easily spin up local instances for:
+   - PostgreSQL (Port `5433`)
+   - Milvus (Port `19530`)
+   - MinIO (Port `9000`)
 
-### Key Design Principles
-
-1. **Layer Isolation**: Each layer has specific responsibilities
-2. **Core Privilege**: Only `core` module can access `storage` directly
-3. **Separation of Concerns**: Each module has a clear purpose
-4. **Testability**: Modular design facilitates comprehensive testing
-
-## 🛠️ Installation
-
+### 1. Setup Backend
 ```bash
-# Clone the repository
-git clone https://github.com/yourusername/image_retrieval.git
+# Clone the repository and navigate into the folder
 cd image_retrieval
 
-# Create virtual environment
+# Create virtual environment if it doesn't exist
 python -m venv venv
-source venv/bin/activate  # Linux/Mac
-# or
-.\venv\Scripts\activate   # Windows
+# Activate virtual environment (Windows)
+call venv\Scripts\activate.bat
 
 # Install dependencies
 pip install -r requirements.txt
 ```
 
-## 📖 Usage
-
-### Running the API Server
-
+### 2. Setup Frontend
 ```bash
-python -m src.app.app
+cd frontend-react
+npm install
 ```
 
-### API Endpoints
+### 3. Running the Application (Windows Environment)
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/health` | Health check |
-| POST | `/api/v1/search` | Search similar images |
-| POST | `/api/v1/upload` | Upload new image |
-| GET | `/api/v1/images/{id}` | Get image metadata |
+The repository provides handy `.bat` scripts for quick boot-up on Windows machines:
 
-## 🧪 Testing
+*   **Option A**: Run everything simultaneously.
+    ```bash
+    ./start_all.bat
+    ```
+    *This will open two terminal windows handling the processes independently.*
 
-```bash
-# Run all tests
-pytest src/test/
-
-# Run with coverage
-pytest --cov=src src/test/
-
-# Run specific test file
-pytest src/test/unit/test_models.py
-```
-
-## 📦 Dependencies
-
-- **Framework**: FastAPI / Flask (to be determined)
-- **ML Libraries**: PyTorch / TensorFlow
-- **Database**: PostgreSQL / MongoDB
-- **Storage**: Local filesystem / S3
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🙏 Acknowledgments
-
-- Pre-trained model providers
-- Open source community
-- Research papers on image retrieval
+*   **Option B**: Run them individually.
+    ```bash
+    # Terminal 1: Starts the API server on http://localhost:8080
+    ./start_backend.bat
+    
+    # Terminal 2: Starts the Web UI on http://localhost:5173
+    ./start_frontend.bat
+    ```
 
 ---
 
-**Note**: This project follows the architecture where only the `core` module has direct access to the `storage` layer. All storage operations must go through the core logic layer.
+## 🧠 Tuning AI Sensitivity
+If the AI search returns results that aren't matching well, you can adjust the strictness of the Search Threshold.
+1. Open `src/utils/constants.py`.
+2. Find `SIMILARITY_THRESHOLD`.
+3. Increase the value (e.g., `0.90`) for stricter identical matching, or lower it (e.g., `0.40`) for broader stylistic matching.
+4. Restart the backend service (`start_backend.bat`).
+
+---
+
+## 🤝 Contributing
+Contributions, issues, and feature requests are welcome!
+1. Fork the project.
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`).
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`).
+4. Push to the branch (`git push origin feature/AmazingFeature`).
+5. Open a Pull Request.
+
+---
+
+> Built with ❤️ by the Vogue Find Development Team.

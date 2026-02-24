@@ -2,7 +2,7 @@ from src.core.database.milvus_client import MilvusClient, Collection
 from src.core.database.postgres_client import PostgreSQL
 from src.core.storage.MinIO_client import MinioClient
 from src.core.models.feature_extractor import FeatureExtractor
-from src.utils.constants import QUERY_BUCKET
+from src.utils.constants import QUERY_BUCKET, SIMILARITY_THRESHOLD
 
 import os
 import uuid
@@ -58,11 +58,33 @@ class SearchService:
             if not milvus_results:
                 return []
             
+            # Lọc bằng ngưỡng SIMILARITY_THRESHOLD
+            milvus_results = [item for item in milvus_results if item.get('score', 0) >= SIMILARITY_THRESHOLD]
+            
+            if not milvus_results:
+                return []
+            
+            milvus_results.sort(key=lambda x: x['distance'])    # sắp xếp theo khoảng cách (L2: nhỏ = giống hơn)
             results_id = [item['id'] for item in milvus_results]
 
+            # Lưu map id→distance và vị trí để sort lại sau
+            distance_map = {item['id']: item['distance'] for item in milvus_results}
+            score_map    = {item['id']: item['score']    for item in milvus_results}
+            order_map    = {item['id']: idx for idx, item in enumerate(milvus_results)}
+
             self.ps.log_search_history(userID, minio_path, results_id)
-            final_results = self.ps.search_data(results_id)
-            
+            raw_results = self.ps.search_data(results_id)
+
+            # PostgreSQL ANY(...) không giữ thứ tự → sort lại theo thứ tự Milvus
+            for r in raw_results:
+                pid = r.get('Id') or r.get('id') or r.get('ID')
+                r['distance'] = distance_map.get(pid, 9999)
+                r['score']    = score_map.get(pid, 0)
+
+            final_results = sorted(raw_results, key=lambda r: order_map.get(
+                r.get('Id') or r.get('id') or r.get('ID'), 9999
+            ))
+
             return final_results
         except Exception as e:
             print(f"Error : {e}")

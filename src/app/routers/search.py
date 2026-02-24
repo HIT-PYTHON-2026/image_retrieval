@@ -2,6 +2,7 @@ from fastapi import APIRouter, File, UploadFile, Form, HTTPException
 
 from src.core.services.search_service import SearchService
 from src.core.services.validate_image_service import Validate_Image_Service
+from src.core.database.postgres_client import PostgreSQL
 
 import numpy as np
 
@@ -9,6 +10,7 @@ router = APIRouter()
 
 service_search = SearchService()
 val = Validate_Image_Service()
+db = PostgreSQL()
 
 """
     API tìm kiếm hình ảnh theo yêu cầu
@@ -49,7 +51,18 @@ async def search_product_by_image(
         raise HTTPException(status_code= 500, detail= "System error when process image")
 
 
-
+@router.get("/api/v1/top-rated", tags=["AI Search"])
+async def get_top_rated_products(limit: int = 10):
+    """
+    Lấy danh sách sản phẩm được đánh giá cao nhất.
+    Dùng PostgreSQL.get_top_rated_products() — SQL nằm trong postgres_client.py.
+    """
+    try:
+        data = db.get_top_rated_products(limit)
+        return {"message": "Thành công", "data": data}
+    except Exception as e:
+        print(f"Error top-rated: {e}")
+        raise HTTPException(status_code=500, detail="Lỗi hệ thống khi lấy top rated")
 
 
 

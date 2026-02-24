@@ -94,4 +94,4 @@ async def login(request: LoginRequest):
         raise
     except Exception as e:
         print(f"Error: {e}")
-        raise HTTPException(status_code=500, detal= "Internal Sever Error")
+        raise HTTPException(status_code=500, detail= "Internal Sever Error")
