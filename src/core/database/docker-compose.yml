@@ -1,0 +1,93 @@
+# đây sẽ là nơi ta thuê 3 thằng MinIO, postgresSQl và milvus về để làm việc cho mình 
+# sau này docker sẽ thuê ba anh này sau
+version: '3.8' # cài đặt phiên bản giao tiếp với docker
+
+# đây sẽ là nơi ta bắt đầu thuê nhân viên
+services:
+  # đầu tiên ta sẽ cài đặt postgreSQL
+  db: # đầu tiên là cái db này các bạn hiểu đơn giản như ta đặt tên 1 biến là service sau này trong code ta sẽ dùng nó thường xuyên 
+    image: postgres:15 # image này có nghĩa là cái biến này ta thuê phần mềm là gì thì có tên là postgre bản 15
+    container_name: fashion_postgres
+    # container_name là tên cho cái database sau này ta sẽ dùng cái tên này để tương tác với nó bằng docker
+    # còn máy tính thì sẽ hiểu là có thằng tên là db 
+
+    # tạo một môi trương cho postgre 
+    environment:  
+      POSTGRES_USER: user # tên tk cho database
+      POSTGRES_PASSWORD: password  # mật khẩu cho nó
+      POSTGRES_DB: image_retrieval # tên cái database đó
+
+    # đây là cổng để database truy cập vào sau này để ta có thể gõ các lệnh á
+    # cổng bên trái dấu ":" là cổng máy tính của mình thích để số nào cũng đc
+    # cổng bên phải là của ông postgres thì bắt buộc là 5432 cái này là mặc đinh của nó
+    # sau này ta dùng các phần mêm để truy cập sẽ đi theo cổng nãy cũng như ta xử lý database ở code python
+    ports:
+      - "5433:5432"
+
+    # đây là nơi ta sẽ lưu lại các dữ liệu nếu không có nó ta sẽ bị mất vì docker vẫn là một môi trường máy ảo tạm thời
+    # vẫn quy tắc trái phải của dấu ":"
+    # bên trái là nơi sẽ lưu ở máy tính ta ./ là ngay ở thư mục hiện tại và /ps_data là thư mục ta sẽ dùng để lưu lượng data đó
+    # bên phải là nơi mà postgre nó sẽ làm việc (đây là đường dẫn mặc định để postgres hoạt động trên Linux của container)
+    # dễ hiểu hơn thì khi postgres làm việc ở một máy ảo bên docker thì ta sẽ bê đám dữ liệu đó lưu vào Window của máy mình 
+    volumes:
+      - ./ps_data:/var/lib/postgresql/data
+
+  # tiếp theo chính là cài đặt MinIO
+
+  minio:
+    image: minio/minio
+    container_name: fashion_minio
+    # tài khoản mật khẩu để truy cập vào minioadmin
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9000:9000" # cổng máy
+      - "9001:9001" # cổng người
+    volumes:
+      - ./minio_data:/data
+    command: server /data --console-address ":9001" 
+      
+  # cuối cùng là cài đặt Milvus
+  # cái này sẽ có 3 phần 
+  # phần một là cài đặt etcd
+  etcd: 
+    image: quay.io/coreos/etcd:v3.5.0
+    container_name: milvus_etcd
+    environment:
+      - ALLOW_NONE_AUTHENTICATION=yes
+      - ETCD_ADVERTISE_CLIENT_URLS=http://etcd:2379
+      - ETCD_LISTEN_CLIENT_URLS=http://0.0.0.0:2379
+    volumes:
+      - ./etcd_data:/etcd  
+
+  # phần tiếp theo ta cài đặt milvus
+
+  milvus:
+    image: milvusdb/milvus:v2.3.0
+    container_name: fashion_milvus
+    command: ["milvus", "run", "standalone"]
+    environment:
+      ETCD_ENDPOINTS: etcd:2379
+      MINIO_ADDRESS: minio:9000
+      MINIO_ACCESS_KEY_ID: minioadmin
+      MINION_SECRET_ACCESS_KEY: minioadmin
+    volumes:
+      - ./milvus_data:/var/lib/milvus 
+    ports:
+      - "19530:19530"
+      - "9091:9091"
+    depends_on:
+      - "etcd"
+      - "minio"
+
+  # cái cuối này dùng để nhìn vào trong milvus
+  attu:
+    image: zilliz/attu:v2.3.0
+    container_name: milvus_attu
+    environment:
+      MILVUS_URL: milvus:19530
+    ports:
+      - "8000:3000"
+    depends_on:
+      - "milvus"

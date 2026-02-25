@@ -1,0 +1,21 @@
+venv/
+.venv/
+env/
+__pycache__/
+*.py[cod]
+.env
+src/**/images/*
+src/**/data/*
+!**/.gitkeep
+*.jpg
+*.jpeg
+*.png
+src/core/database/milvus_data/
+src/core/database/minio_data/
+src/core/database/ps_data/
+
+# Frontend builds and dependencies
+node_modules/
+dist/
+.env.local
+.DS_Store
