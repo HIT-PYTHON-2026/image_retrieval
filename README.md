@@ -95,13 +95,27 @@ call venv\Scripts\activate.bat
 pip install -r requirements.txt
 ```
 
-### 2. Setup Frontend
+### 2. Prepare the Dataset (Required)
+The system requires an initial dataset of fashion images to build the database index.
+1. Download the [Fashion Product Images Small](https://www.kaggle.com/datasets/paramaggarwal/fashion-product-images-small) dataset from Kaggle.
+2. Extract the downloaded archive.
+3. Move the `images` folder and the `styles.csv` file into the following directory inside the project:
+   ```text
+   src/core/storage/data/
+   ```
+4. Run the ETL Pipeline to build the database, extract visual features, and populate Milvus and PostgreSQL:
+   ```bash
+   python -m scripts.etl_pipeline
+   ```
+   *Note: This process might take several minutes depending on your hardware since it uses deep learning to process thousands of images.*
+
+### 3. Setup Frontend
 ```bash
 cd frontend-react
 npm install
 ```
 
-### 3. Running the Application (Windows Environment)
+### 4. Running the Application (Windows Environment)
 
 The repository provides handy `.bat` scripts for quick boot-up on Windows machines:
 
